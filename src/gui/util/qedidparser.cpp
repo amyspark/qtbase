@@ -69,6 +69,32 @@ static QString lookupVendorIdInSystemDatabase(QByteArrayView id)
     return result;
 }
 
+QString QEdidParser::parseManufacturer(const std::array<char, 3> &pnpId)
+{
+    // Try to use cache first because it is potentially more updated
+    QString manufacturer = lookupVendorIdInSystemDatabase(pnpId);
+
+    if (manufacturer.isEmpty()) {
+        // Find the manufacturer from the vendor lookup table
+        const auto compareVendorId = [](const VendorTable &vendor, const char *str) {
+            return strncmp(vendor.id, str, 3) < 0;
+        };
+
+        const auto b = std::begin(q_edidVendorTable);
+        const auto e = std::end(q_edidVendorTable);
+        auto it = std::lower_bound(b, e, pnpId.data(), compareVendorId);
+
+        if (it != e && strncmp(it->id, pnpId.data(), 3) == 0)
+            manufacturer = QString::fromUtf8(it->name);
+    }
+
+    // If we don't know the manufacturer, fallback to PNP ID
+    if (manufacturer.isEmpty())
+        manufacturer = QString::fromUtf8(pnpId.data(), std::size(pnpId));
+
+    return manufacturer;
+}
+
 bool QEdidParser::parse(const QByteArray &blob)
 {
     const quint8 *data = reinterpret_cast<const quint8 *>(blob.constData());
@@ -80,18 +106,10 @@ bool QEdidParser::parse(const QByteArray &blob)
     if (data[0] != 0x00 || data[1] != 0xff)
         return false;
 
-    /* Decode the PNP ID from three 5 bit words packed into 2 bytes
-     * /--08--\/--09--\
-     * 7654321076543210
-     * |\---/\---/\---/
-     * R  C1   C2   C3 */
-    char pnpId[3];
-    pnpId[0] = 'A' + ((data[EDID_OFFSET_PNP_ID] & 0x7c) / 4) - 1;
-    pnpId[1] = 'A' + ((data[EDID_OFFSET_PNP_ID] & 0x3) * 8) + ((data[EDID_OFFSET_PNP_ID + 1] & 0xe0) / 32) - 1;
-    pnpId[2] = 'A' + (data[EDID_OFFSET_PNP_ID + 1] & 0x1f) - 1;
+    const auto pnpId = translateToPNP(data[EDID_OFFSET_PNP_ID], data[EDID_OFFSET_PNP_ID + 1]);
 
     // Clear manufacturer
-    manufacturer = QString();
+    manufacturer = parseManufacturer(pnpId);
 
     // Serial number, will be overwritten by an ASCII descriptor
     // when and if it will be found
@@ -118,31 +136,6 @@ bool QEdidParser::parse(const QByteArray &blob)
         else if (data[offset + 3] == EDID_DESCRIPTOR_SERIAL_NUMBER)
             serialNumber = parseEdidString(&data[offset + 5]);
     }
-
-    // Try to use cache first because it is potentially more updated
-    manufacturer = lookupVendorIdInSystemDatabase(pnpId);
-
-    if (manufacturer.isEmpty()) {
-        // Find the manufacturer from the vendor lookup table
-        const auto compareVendorId = [](const VendorTable &vendor, const char *str)
-        {
-            return strncmp(vendor.id, str, 3) < 0;
-        };
-
-        const auto b = std::begin(q_edidVendorTable);
-        const auto e = std::end(q_edidVendorTable);
-        auto it = std::lower_bound(b,
-                                   e,
-                                   pnpId,
-                                   compareVendorId);
-
-        if (it != e && strncmp(it->id, pnpId, 3) == 0)
-            manufacturer = QString::fromUtf8(it->name);
-    }
-
-    // If we don't know the manufacturer, fallback to PNP ID
-    if (manufacturer.isEmpty())
-        manufacturer = QString::fromUtf8(pnpId, std::size(pnpId));
 
     // Physical size
     physicalSize = QSizeF(data[EDID_PHYSICAL_WIDTH], data[EDID_OFFSET_PHYSICAL_HEIGHT]) * 10;

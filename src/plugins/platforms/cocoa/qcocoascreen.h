@@ -37,6 +37,9 @@ public:
     QDpi logicalBaseDpi() const override { return QDpi(72, 72); }
     qreal refreshRate() const override { return m_refreshRate; }
     QString name() const override { return m_name; }
+    QString manufacturer() const override { return m_manufacturer; }
+    QString model() const override { return m_model; }
+    QString serialNumber() const override { return m_serialNumber; }
     QPlatformCursor *cursor() const override { return m_cursor; }
     QWindow *topLevelAt(const QPoint &point) const override;
     QList<QPlatformScreen *> virtualSiblings() const override;
@@ -66,6 +69,8 @@ private:
     static void updateScreens();
     static void cleanupScreens();
 
+    void updateAdditionalMetadataFromIOKit();
+
     static QMacNotificationObserver s_screenParameterObserver;
     static CGDisplayReconfigurationCallBack s_displayReconfigurationCallBack;
 
@@ -85,6 +90,9 @@ private:
     qreal m_refreshRate = 0;
     int m_depth = 0;
     QString m_name;
+    QString m_manufacturer;
+    QString m_model;
+    QString m_serialNumber;
     QImage::Format m_format;
     QColorSpace m_colorSpace;
     QSizeF m_physicalSize;

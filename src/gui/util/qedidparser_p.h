@@ -48,6 +48,21 @@ public:
     bool sRgb;
     bool useTables;
 
+    static inline constexpr std::array<char, 3> translateToPNP(uint8_t x0, uint8_t x1)
+    {
+        /* Decode the PNP ID from three 5 bit words packed into 2 bytes
+         * /--x0--\/--x1--\
+         * 7654321076543210
+         * |\---/\---/\---/
+         * R  C1   C2   C3 */
+        return { {
+                static_cast<char>('A' + ((x0 & 0x7c) / 4U) - 1U), // C1
+                static_cast<char>('A' + ((x0 & 0x3) * 8) + ((x1 & 0xe0) / 32) - 1), // C2
+                static_cast<char>('A' + (x1 & 0x1f) - 1), // C3
+        } };
+    }
+    static QString parseManufacturer(const std::array<char, 3> &pnpId);
+
 private:
     QString parseEdidString(const quint8 *data);
 };

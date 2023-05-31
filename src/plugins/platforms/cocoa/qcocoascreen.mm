@@ -11,6 +11,7 @@
 
 #include <QtCore/qcoreapplication.h>
 #include <QtGui/private/qcoregraphics_p.h>
+#include <QtGui/private/qedidparser_p.h>
 
 #include <IOKit/graphics/IOGraphicsLib.h>
 
@@ -196,12 +197,16 @@ QCocoaScreen::~QCocoaScreen()
          dispatch_release(m_displayLinkSource);
 }
 
-static QString displayName(CGDirectDisplayID displayID)
+void QCocoaScreen::updateAdditionalMetadataFromIOKit()
 {
+#if TARGET_CPU_ARM64
+    // QCocoaScreen: EDID on Apple Silicon is not officially supported by Apple
+#else
     QIOType<io_iterator_t> iterator;
-    if (IOServiceGetMatchingServices(kIOMasterPortDefault,
-        IOServiceMatching("IODisplayConnect"), &iterator))
-        return QString();
+    if (IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching("IODisplayConnect"),
+                                     &iterator)) {
+         return;
+    }
 
     QIOType<io_service_t> display;
     while ((display = IOIteratorNext(iterator)) != 0)
@@ -209,23 +214,43 @@ static QString displayName(CGDirectDisplayID displayID)
         NSDictionary *info = [(__bridge NSDictionary*)IODisplayCreateInfoDictionary(
             display, kIODisplayOnlyPreferredName) autorelease];
 
-        if ([[info objectForKey:@kDisplayVendorID] unsignedIntValue] != CGDisplayVendorNumber(displayID))
+        if ([[info objectForKey:@kDisplayVendorID] unsignedIntValue]
+            != CGDisplayVendorNumber(m_displayId)) {
             continue;
+        }
 
-        if ([[info objectForKey:@kDisplayProductID] unsignedIntValue] != CGDisplayModelNumber(displayID))
+        if ([[info objectForKey:@kDisplayProductID] unsignedIntValue]
+            != CGDisplayModelNumber(m_displayId)) {
             continue;
+        }
 
-        if ([[info objectForKey:@kDisplaySerialNumber] unsignedIntValue] != CGDisplaySerialNumber(displayID))
+        if ([[info objectForKey:@kDisplaySerialNumber] unsignedIntValue]
+            != CGDisplaySerialNumber(m_displayId)) {
             continue;
+        }
 
-        NSDictionary *localizedNames = [info objectForKey:@kDisplayProductName];
-        if (![localizedNames count])
-            break; // Correct screen, but no name in dictionary
+        // Found screen, try filling with dictionary
+        if (m_name.isEmpty()) {
+            NSDictionary *localizedNames = [info objectForKey:@kDisplayProductName];
+            if ([localizedNames count])
+                m_name = QString::fromNSString(
+                        [localizedNames objectForKey:[[localizedNames allKeys] objectAtIndex:0]]);
+        }
 
-        return QString::fromNSString([localizedNames objectForKey:[[localizedNames allKeys] objectAtIndex:0]]);
+        // For the rest, let's fetch the EDID data
+        const QByteArray edidData =
+                QByteArray::fromCFData((__bridge CFDataRef)[info objectForKey:@kIODisplayEDIDKey]);
+
+        QEdidParser edid;
+
+        if (!edid.parse(edidData))
+            break;
+
+        m_manufacturer = edid.manufacturer;
+        m_model = edid.model;
+        m_serialNumber = edid.serialNumber;
     }
-
-    return QString();
+#endif
 }
 
 void QCocoaScreen::update(CGDirectDisplayID displayId)
@@ -272,10 +297,34 @@ void QCocoaScreen::update(CGDirectDisplayID displayId)
     float refresh = CGDisplayModeGetRefreshRate(displayMode);
     m_refreshRate = refresh > 0 ? refresh : 60.0;
 
+    // Update with available metadata first
     if (@available(macOS 10.15, *))
         m_name = QString::fromNSString(nsScreen.localizedName);
-    else
-        m_name = displayName(m_displayId);
+
+    if (m_displayId != kCGNullDirectDisplay) {
+        const auto serialNumber{ CGDisplaySerialNumber(m_displayId) };
+        if (serialNumber)
+            m_serialNumber = QString::number(serialNumber, 16).toUpper();
+
+        const auto vendor{ CGDisplayVendorNumber(m_displayId) };
+
+        if (vendor != kDisplayVendorIDUnknown && vendor != UINT32_MAX) {
+            const auto pnpId{ QEdidParser::translateToPNP(uint8_t(vendor >> 8), uint8_t(vendor)) };
+            m_manufacturer = QEdidParser::parseManufacturer(pnpId);
+        }
+    }
+
+    // Now call upon IODisplayConnect (if available)
+    updateAdditionalMetadataFromIOKit();
+
+    // Only if EDID failed, fill the model with Core Graphics data
+    if (m_model.isEmpty()) {
+        const auto model{ CGDisplayModelNumber(m_displayId) };
+
+        if (model != kDisplayProductIDGeneric && model != UINT32_MAX) {
+            m_model = QString::number(model, 16).toUpper();
+        }
+    }
 
     const bool didChangeGeometry = m_geometry != previousGeometry || m_availableGeometry != previousAvailableGeometry;
 
