@@ -621,6 +621,11 @@ qt_feature("accessibility-atspi-bridge" PUBLIC PRIVATE
     CONDITION QT_FEATURE_accessibility AND QT_FEATURE_xcb AND QT_FEATURE_dbus AND ATSPI2_FOUND
 )
 qt_feature_definition("accessibility-atspi-bridge" "QT_NO_ACCESSIBILITY_ATSPI_BRIDGE" NEGATE VALUE "1")
+qt_feature("angle" PUBLIC
+    LABEL "ANGLE"
+    AUTODETECT QT_FEATURE_opengles2 OR QT_FEATURE_opengl_dynamic
+    CONDITION NOT QT_FEATURE_opengl_desktop
+)
 qt_feature("directfb" PRIVATE
     SECTION "Platform plugins"
     LABEL "DirectFB"
@@ -746,8 +751,8 @@ qt_feature("mtdev" PRIVATE
 )
 qt_feature("opengles2" PUBLIC
     LABEL "OpenGL ES 2.0"
-    CONDITION NOT WIN32 AND NOT WATCHOS AND NOT QT_FEATURE_opengl_desktop AND GLESv2_FOUND
-    ENABLE INPUT_opengl STREQUAL 'es2'
+    CONDITION WIN32 OR ( NOT APPLE_WATCHOS AND NOT QT_FEATURE_opengl_desktop AND GLESv2_FOUND )
+    ENABLE INPUT_opengl STREQUAL 'es2' OR INPUT_angle STREQUAL 'yes'
     DISABLE INPUT_opengl STREQUAL 'desktop' OR INPUT_opengl STREQUAL 'dynamic' OR INPUT_opengl STREQUAL 'no'
 )
 qt_feature_config("opengles2" QMAKE_PUBLIC_QT_CONFIG)
@@ -773,7 +778,7 @@ qt_feature("opengl-desktop"
 qt_feature("opengl-dynamic"
     LABEL "Dynamic OpenGL"
     CONDITION WIN32
-    DISABLE INPUT_opengl STREQUAL 'no' OR INPUT_opengl STREQUAL 'desktop'
+    DISABLE INPUT_angle STREQUAL 'yes' OR INPUT_opengl STREQUAL 'no' OR INPUT_opengl STREQUAL 'desktop'
 )
 qt_feature_definition("opengl-dynamic" "QT_OPENGL_DYNAMIC")
 qt_feature("opengl" PUBLIC
@@ -800,7 +805,7 @@ qt_feature("openvg" PUBLIC
 )
 qt_feature("egl" PUBLIC
     LABEL "EGL"
-    CONDITION ( QT_FEATURE_opengl OR QT_FEATURE_openvg ) AND EGL_FOUND AND ( QT_FEATURE_dlopen OR NOT UNIX OR INTEGRITY )
+    CONDITION ( QT_FEATURE_opengl OR QT_FEATURE_openvg ) AND EGL_FOUND AND ( QT_FEATURE_dlopen OR NOT UNIX OR INTEGRITY ) AND NOT QT_FEATURE_angle
 )
 qt_feature_definition("egl" "QT_NO_EGL" NEGATE VALUE "1")
 qt_feature("egl_x11" PRIVATE
@@ -1242,6 +1247,10 @@ qt_configure_end_summary_section() # end of "Text formats" section
 qt_configure_add_summary_entry(ARGS "egl")
 qt_configure_add_summary_entry(ARGS "openvg")
 qt_configure_add_summary_section(NAME "OpenGL")
+qt_configure_add_summary_entry(
+    ARGS "angle"
+    CONDITION WIN32
+)
 qt_configure_add_summary_entry(ARGS "opengl-desktop")
 qt_configure_add_summary_entry(
     ARGS "opengl-dynamic"
@@ -1326,6 +1335,11 @@ qt_configure_add_report_entry(
     TYPE WARNING
     MESSAGE "No QPA platform plugin enabled! This will produce a Qt that cannot run GUI applications.  See \"Platform backends\" in the output of --help."
     CONDITION QT_FEATURE_gui AND LINUX AND NOT ANDROID AND NOT QT_FEATURE_xcb AND NOT QT_FEATURE_eglfs AND NOT QT_FEATURE_directfb AND NOT QT_FEATURE_linuxfb
+)
+qt_configure_add_report_entry(
+    TYPE WARNING
+    MESSAGE "Using OpenGL ES 2.0 on Windows without ANGLE.  The build will most likely fail.  Specify -opengl desktop to use regular OpenGL."
+    CONDITION WIN32 AND QT_FEATURE_opengles2 AND NOT QT_FEATURE_angle
 )
 qt_configure_add_report_entry(
     TYPE ERROR

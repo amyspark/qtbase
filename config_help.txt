@@ -259,6 +259,8 @@ Gui, printing, widget options:
                          dynamic (Windows only, default on Windows)
   -opengles3 ........... Enable OpenGL ES 3.x support instead of ES 2.x [auto]
   -egl ................. Enable EGL support [auto]
+  -angle ............... Use bundled ANGLE to support OpenGL ES 2.0 [auto]
+                         (Windows only)
 
   -qpa <name> .......... Select default QPA backend(s) (e.g., xcb, cocoa, windows)
                          A prioritized list separated by semi-colons.

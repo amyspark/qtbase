@@ -79,7 +79,7 @@ QOpenGLContext *QNativeInterface::QGLXContext::fromNative(GLXContext visualBased
 }
 #endif // QT_CONFIG(xcb_glx_plugin)
 
-#if QT_CONFIG(egl)
+#  if QT_CONFIG(egl) || QT_CONFIG(angle)
 
 /*!
     \class QNativeInterface::QEGLContext

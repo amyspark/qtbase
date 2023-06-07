@@ -55,6 +55,9 @@
 
 #include <limits.h>
 
+#if QT_CONFIG(angle) || defined(QT_OPENGL_DYNAMIC)
+#  include "qwindowseglcontext.h"
+#endif
 #if !defined(QT_NO_OPENGL)
 #  include "qwindowsglcontext.h"
 #endif
@@ -406,6 +409,17 @@ QWindowsStaticOpenGLContext *QWindowsStaticOpenGLContext::doCreate()
         }
         qCWarning(lcQpaGl, "System OpenGL failed. Falling back to Software OpenGL.");
         return QOpenGLStaticContext::create(true);
+#    if QT_CONFIG(angle)
+    // If ANGLE is requested, use it, don't try anything else.
+    case QWindowsOpenGLTester::AngleRendererD3d9:
+    case QWindowsOpenGLTester::AngleRendererD3d11:
+    case QWindowsOpenGLTester::AngleRendererD3d11On12:
+    case QWindowsOpenGLTester::AngleRendererD3d11Warp:
+    case QWindowsOpenGLTester::AngleRendererOpenGL:
+        return QWindowsEGLStaticContext::create(requestedRenderer);
+    case QWindowsOpenGLTester::Gles:
+        return QWindowsEGLStaticContext::create(requestedRenderer);
+#    endif
     case QWindowsOpenGLTester::SoftwareRasterizer:
         if (QWindowsStaticOpenGLContext *swCtx = QOpenGLStaticContext::create(true))
             return swCtx;
@@ -431,6 +445,13 @@ QWindowsStaticOpenGLContext *QWindowsStaticOpenGLContext::doCreate()
             return glCtx;
         }
     }
+#    if QT_CONFIG(angle)
+    if (QWindowsOpenGLTester::Renderers glesRenderers =
+                supportedRenderers & QWindowsOpenGLTester::GlesMask) {
+        if (QWindowsEGLStaticContext *eglCtx = QWindowsEGLStaticContext::create(glesRenderers))
+            return eglCtx;
+    }
+#    endif
     return QOpenGLStaticContext::create(true);
 #else
     return QOpenGLStaticContext::create();

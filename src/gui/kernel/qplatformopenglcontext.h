@@ -98,7 +98,7 @@ struct Q_GUI_EXPORT QGLXIntegration
 };
 #endif
 
-#if QT_CONFIG(egl)
+#  if QT_CONFIG(egl) || QT_CONFIG(angle)
 struct Q_GUI_EXPORT QEGLIntegration
 {
     QT_DECLARE_NATIVE_INTERFACE(QEGLIntegration)

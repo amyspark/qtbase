@@ -327,7 +327,6 @@ qt_internal_extend_target(Gui CONDITION QT_FEATURE_standarditemmodel
 # used direct public linkage against either libGLESv2 or libGL, depending
 # on the opengl _feature_. This is done by hand now here (where the
 # feature is available).
-# On Windows with 'dynamic' OpenGL we must not link to opengl32.
 # DO NOT MOVE THIS TO THE BEGINNING OF THE FILE, the feature variables are not
 # available until the qt_internal_add_module call.
 if(QT_FEATURE_opengl)
@@ -902,6 +901,10 @@ qt_internal_extend_target(Gui CONDITION UNIX
         platform/unix/qgenericunixeventdispatcher.cpp platform/unix/qgenericunixeventdispatcher_p.h
         platform/unix/qunixeventdispatcher.cpp
         platform/unix/qunixeventdispatcher_qpa_p.h
+)
+
+qt_internal_extend_target(Gui CONDITION UNIX OR QT_FEATURE_egl OR QT_FEATURE_angle
+    SOURCES
         platform/unix/qunixnativeinterface.cpp
 )
 

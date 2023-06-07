@@ -1324,7 +1324,7 @@ void *QOpenGLContext::resolveInterface(const char *name, int revision) const
 #if QT_CONFIG(xcb_glx_plugin)
     QT_NATIVE_INTERFACE_RETURN_IF(QGLXContext, platformContext);
 #endif
-#if QT_CONFIG(egl)
+#if QT_CONFIG(egl) || QT_CONFIG(angle)
     QT_NATIVE_INTERFACE_RETURN_IF(QEGLContext, platformContext);
 #endif
 

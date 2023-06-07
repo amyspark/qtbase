@@ -100,6 +100,13 @@ qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION QT_FEATURE_opengl 
         opengl32
 )
 
+qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION QT_FEATURE_angle
+    SOURCES
+        qwindowseglcontext.cpp qwindowseglcontext.h
+    LIBRARIES
+        EGL::EGL
+)
+
 qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION MINGW
     LIBRARIES
         uuid

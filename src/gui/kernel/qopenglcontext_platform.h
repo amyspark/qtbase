@@ -28,7 +28,7 @@ Q_FORWARD_DECLARE_OBJC_CLASS(NSOpenGLContext);
 #if QT_CONFIG(xcb_glx_plugin)
 struct __GLXcontextRec; typedef struct __GLXcontextRec *GLXContext;
 #endif
-#if QT_CONFIG(egl)
+#  if QT_CONFIG(egl) || QT_CONFIG(angle)
 typedef void *EGLContext;
 typedef void *EGLDisplay;
 typedef void *EGLConfig;
@@ -71,7 +71,7 @@ struct Q_GUI_EXPORT QGLXContext
 };
 #endif
 
-#if QT_CONFIG(egl) || defined(Q_QDOC)
+#  if QT_CONFIG(egl) || QT_CONFIG(angle) || defined(Q_QDOC)
 struct Q_GUI_EXPORT QEGLContext
 {
     QT_DECLARE_NATIVE_INTERFACE(QEGLContext, 1, QOpenGLContext)
