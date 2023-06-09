@@ -775,11 +775,6 @@ qt_feature("opengl-dynamic"
     CONDITION WIN32
     DISABLE INPUT_opengl STREQUAL 'no' OR INPUT_opengl STREQUAL 'desktop'
 )
-qt_feature("dynamicgl" PUBLIC
-    LABEL "Dynamic OpenGL: dynamicgl"
-    CONDITION QT_FEATURE_opengl_dynamic
-    DISABLE INPUT_opengl STREQUAL 'no' OR INPUT_opengl STREQUAL 'desktop'
-)
 qt_feature_definition("opengl-dynamic" "QT_OPENGL_DYNAMIC")
 qt_feature("opengl" PUBLIC
     LABEL "OpenGL"
