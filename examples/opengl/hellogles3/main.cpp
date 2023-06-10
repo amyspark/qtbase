@@ -17,6 +17,9 @@
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
+    qputenv("QT_ANGLE_PLATFORM", "opengl");
+
     QGuiApplication app(argc, argv);
 
     QSurfaceFormat fmt;
