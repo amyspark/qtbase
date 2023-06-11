@@ -21,7 +21,6 @@ public:
     virtual ~QWindowsStaticOpenGLContext() = default;
 
     virtual QWindowsOpenGLContext *createContext(QOpenGLContext *context) = 0;
-    virtual QWindowsOpenGLContext *createContext(HGLRC context, HWND window) = 0;
     virtual void *moduleHandle() const = 0;
     virtual QOpenGLContext::OpenGLModuleType moduleType() const = 0;
     virtual bool supportsThreadedOpenGL() const { return false; }
@@ -36,6 +35,20 @@ protected:
 
 private:
     static QWindowsStaticOpenGLContext *doCreate();
+};
+
+class QWindowsStaticWGLContext : public QWindowsStaticOpenGLContext
+{
+    Q_DISABLE_COPY_MOVE(QWindowsStaticWGLContext)
+public:
+    ~QWindowsStaticWGLContext() override = default;
+
+    using QWindowsStaticOpenGLContext::createContext;
+
+    virtual QWindowsOpenGLContext *createContext(HGLRC context, HWND window) = 0;
+
+protected:
+    QWindowsStaticWGLContext() = default;
 };
 
 class QWindowsOpenGLContext : public QPlatformOpenGLContext

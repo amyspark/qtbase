@@ -98,7 +98,7 @@ private:
     int (WINAPI * wglDescribePixelFormat)(HDC dc, int pf, UINT size, PIXELFORMATDESCRIPTOR *pfd);
 };
 
-class QOpenGLStaticContext : public QWindowsStaticOpenGLContext
+class QOpenGLStaticContext : public QWindowsStaticWGLContext
 {
     Q_DISABLE_COPY_MOVE(QOpenGLStaticContext)
     QOpenGLStaticContext();

@@ -477,7 +477,8 @@ QOpenGLContext *QWindowsIntegration::createOpenGLContext(HGLRC ctx, HWND window,
     if (!ctx || !window)
         return nullptr;
 
-    if (QWindowsStaticOpenGLContext *staticOpenGLContext = QWindowsIntegration::staticOpenGLContext()) {
+    if (auto *staticOpenGLContext = dynamic_cast<QWindowsStaticWGLContext *>(
+                QWindowsIntegration::staticOpenGLContext())) {
         std::unique_ptr<QWindowsOpenGLContext> result(staticOpenGLContext->createContext(ctx, window));
         if (result->isValid()) {
             auto *context = new QOpenGLContext;
