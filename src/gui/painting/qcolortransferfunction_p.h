@@ -248,6 +248,30 @@ public:
     {
         return { QICCColorTransferFunction::fromProPhotoRgb() };
     }
+    static QColorTransferFunction fromPQ()
+    {
+        static const auto oetf = [](float v) {
+            const auto m1 = 2610.f / 16384.f;
+            const auto m2 = 128.f * 2523.f / 4096.f;
+            const auto c1 = 3424.f / 4096.f;
+            const auto c2 = 32.f * 2413.f / 4096.f;
+            const auto c3 = 32.f * 2392.f / 4096.f;
+            const auto E_ = powf(v, 1.f / m2);
+            return 10000.f * powf((std::max(E_ - c1, 0.f)) / (c2 - c3 * E_), 1.f / m1);
+        };
+
+        static const auto eotf = [](float v) {
+            const auto m1 = 2610.f / 16384.f;
+            const auto c1 = 3424.f / 4096.f;
+            const auto c2 = 32.f * 2413.f / 4096.f;
+            const auto c3 = 32.f * 2392.f / 4096.f;
+            const auto Y = v / 10000.f;
+            const auto Y_m1 = powf(Y, m1);
+            return powf((c1 + c2 * Y_m1) / (1.f + c3 * Y_m1), 1.f / m1);
+        };
+
+        return {std::make_unique<QCustomColorTransferFunction<decltype(eotf), decltype(oetf)>>(eotf, oetf)};
+    }
 
     QSharedPointer<QColorTransferFunctionPrivate> m_impl;
 

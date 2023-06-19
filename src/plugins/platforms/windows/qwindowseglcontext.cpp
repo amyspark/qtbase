@@ -116,7 +116,7 @@ bool QWindowsLibEGL::init()
     RESOLVE(eglSwapBuffers);
     RESOLVE(eglGetProcAddress);
 
-    if (!eglGetError || !eglGetDisplay || !eglInitialize || !eglGetProcAddress)
+    if (!eglGetError || !eglGetDisplay || !eglInitialize || !eglGetProcAddress || !eglQueryString)
         return false;
 
     eglGetPlatformDisplayEXT = nullptr;
@@ -156,7 +156,23 @@ bool QWindowsLibGLESv2::init()
     return glBindTexture && glCreateShader && glClearDepthf;
 }
 
-QWindowsEGLStaticContext::QWindowsEGLStaticContext(EGLDisplay display) : m_display(display) { }
+QWindowsEGLStaticContext::QWindowsEGLStaticContext(EGLDisplay display)
+    : m_display(display),
+      m_hasSRGBColorSpaceSupport(false),
+      m_hasSCRGBColorSpaceSupport(false),
+      m_hasBt2020PQColorSpaceSupport(false),
+      m_hasPixelFormatFloatSupport(false)
+{
+    m_hasSRGBColorSpaceSupport = q_hasEglExtension(display, "EGL_KHR_gl_colorspace");
+    m_hasSCRGBColorSpaceSupport = q_hasEglExtension(display, "EGL_EXT_gl_colorspace_scrgb_linear");
+    m_hasBt2020PQColorSpaceSupport = q_hasEglExtension(display, "EGL_EXT_gl_colorspace_bt2020_pq");
+    m_hasPixelFormatFloatSupport = q_hasEglExtension(display, "EGL_EXT_pixel_format_float");
+    if (m_hasSCRGBColorSpaceSupport && !m_hasPixelFormatFloatSupport) {
+        qWarning("%s: EGL_EXT_gl_colorspace_scrgb_linear supported but EGL_EXT_pixel_format_float "
+                 "not available!", __FUNCTION__);
+        m_hasSCRGBColorSpaceSupport = false;
+    }
+}
 
 bool QWindowsEGLStaticContext::initializeAngle(QWindowsOpenGLTester::Renderers preferredType,
                                                HDC dc, EGLDisplay *display, EGLint *major,
@@ -276,11 +292,77 @@ QWindowsOpenGLContext *QWindowsEGLStaticContext::createContext(QOpenGLContext *c
 }
 
 void *QWindowsEGLStaticContext::createWindowSurface(void *nativeWindow, void *nativeConfig,
-                                                    int *err)
+                                                    const QColorSpace &colorSpace, int *err)
 {
     *err = 0;
+
+    EGLint eglColorSpace{ EGL_GL_COLORSPACE_LINEAR_KHR };
+    bool colorSpaceSupported{ colorSpace.isValid() };
+
+    const auto primaries{ colorSpace.primaries() };
+    const auto transferFunction{ colorSpace.transferFunction() };
+
+    if (primaries == QColorSpace::Primaries::SRgb) {
+        colorSpaceSupported = m_hasSRGBColorSpaceSupport;
+        switch (transferFunction) {
+        case QColorSpace::TransferFunction::SRgb:
+            eglColorSpace = EGL_GL_COLORSPACE_SRGB_KHR;
+            break;
+        case QColorSpace::TransferFunction::Linear:
+            eglColorSpace = EGL_GL_COLORSPACE_LINEAR_KHR;
+            break;
+        default:
+            colorSpaceSupported = false;
+            break;
+        }
+    } else if (primaries == QColorSpace::Primaries::ScRGB
+               && transferFunction == QColorSpace::TransferFunction::Linear) {
+        colorSpaceSupported = m_hasSCRGBColorSpaceSupport;
+        switch (transferFunction) {
+        case QColorSpace::TransferFunction::SRgb:
+            eglColorSpace = EGL_GL_COLORSPACE_SCRGB_EXT;
+            break;
+        case QColorSpace::TransferFunction::Linear:
+            eglColorSpace = EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT;
+            break;
+        default:
+            colorSpaceSupported = false;
+            break;
+        }
+    } else if (primaries == QColorSpace::Primaries::Bt2020) {
+        colorSpaceSupported = m_hasBt2020PQColorSpaceSupport;
+        switch (transferFunction) {
+        case QColorSpace::TransferFunction::PQ:
+            eglColorSpace = EGL_GL_COLORSPACE_BT2020_PQ_EXT;
+            break;
+        case QColorSpace::TransferFunction::Linear:
+            eglColorSpace = EGL_GL_COLORSPACE_BT2020_LINEAR_EXT;
+            break;
+        default:
+            colorSpaceSupported = false;
+            break;
+        }
+    }
+
+    std::vector<EGLint> attributes;
+
+    if (colorSpaceSupported) {
+        attributes.emplace_back(EGL_GL_COLORSPACE);
+        attributes.emplace_back(eglColorSpace);
+    }
+
+    attributes.emplace_back(EGL_NONE);
+
+    if (!colorSpaceSupported && colorSpace.isValid())
+        qWarning("%s: Requested color space is not supported by EGL implementation: %s %s (egl: 0x%x)",
+                 __FUNCTION__,
+                 QMetaEnum::fromType<QColorSpace::Primaries>().valueToKey(int(colorSpace.primaries())),
+                 QMetaEnum::fromType<QColorSpace::TransferFunction>().valueToKey(int(colorSpace.transferFunction())),
+                 eglColorSpace);
+
     EGLSurface surface{ libEGL.eglCreateWindowSurface(
-            m_display, nativeConfig, static_cast<EGLNativeWindowType>(nativeWindow), nullptr) };
+            m_display, nativeConfig, static_cast<EGLNativeWindowType>(nativeWindow),
+            attributes.data()) };
     if (surface == EGL_NO_SURFACE) {
         *err = libEGL.eglGetError();
         qWarning("%s: Could not create the EGL window surface: 0x%x", __FUNCTION__, *err);
@@ -313,7 +395,6 @@ void QWindowsEGLStaticContext::destroyWindowSurface(void *nativeSurface)
 
     \internal
 */
-
 QWindowsEGLContext::QWindowsEGLContext(QWindowsEGLStaticContext *staticContext,
                                        const QSurfaceFormat &format, QPlatformOpenGLContext *share)
     : m_staticContext(staticContext), m_eglDisplay(staticContext->display())
@@ -422,8 +503,9 @@ bool QWindowsEGLContext::makeCurrent(QPlatformSurface *surface)
             // adapters.
             qCDebug(lcQpaGl) << "Bad access (missing device?) in createWindowSurface() for context"
                              << this;
-        } else if (err == EGL_BAD_ATTRIBUTE) {
-            qCDebug(lcQpaGl) << "Bad attribute in createWindowSurface() for context" << this;
+        } else if (err == EGL_BAD_MATCH) {
+            qCDebug(lcQpaGl) << "Got bad match in createWindowSurface() for context" << this
+                             << "Check color space configuration.";
         }
         // Simulate context loss as the context is useless.
         QWindowsEGLStaticContext::libEGL.eglDestroyContext(m_eglDisplay, m_eglContext);
@@ -769,6 +851,10 @@ EGLConfig QWindowsEglConfigChooser::chooseConfig()
         else
             configureAttributes.emplace_back(EGL_OPENGL_ES2_BIT);
     }
+    if (m_format.colorSpace().primaries() == QColorSpace::Primaries::ScRGB) {
+        configureAttributes.emplace_back(EGL_COLOR_COMPONENT_TYPE_EXT);
+        configureAttributes.emplace_back(EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT);
+    }
     configureAttributes.emplace_back(EGL_NONE);
 
     EGLConfig cfg{ nullptr };
@@ -911,6 +997,7 @@ QSurfaceFormat q_glFormatFromConfig(EGLDisplay display, const EGLConfig config,
     format.setStencilBufferSize(stencilSize);
     format.setSamples(sampleCount);
     format.setStereo(false); // EGL doesn't support stereo buffers
+    format.setColorSpace(referenceFormat.colorSpace());
     format.setSwapInterval(referenceFormat.swapInterval());
 
     // Clear the EGL error state because some of the above may

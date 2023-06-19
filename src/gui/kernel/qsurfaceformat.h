@@ -51,11 +51,15 @@ public:
     Q_ENUM(OpenGLContextProfile)
 
 #if QT_DEPRECATED_SINCE(6,0)
+    /* clang-format off */
     enum ColorSpace {
         DefaultColorSpace,
-        sRGBColorSpace
+        sRGBColorSpace,
+        scRGBColorSpace,
+        bt2020PQColorSpace
     };
     Q_ENUM(ColorSpace)
+    /* clang-format on*/
 #endif
 
     QSurfaceFormat();

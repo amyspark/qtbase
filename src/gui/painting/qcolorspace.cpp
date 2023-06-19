@@ -36,6 +36,7 @@ QColorSpacePrimaries::QColorSpacePrimaries(QColorSpace::Primaries primaries)
 {
     switch (primaries) {
     case QColorSpace::Primaries::SRgb:
+    case QColorSpace::Primaries::ScRGB:
         redPoint   = QPointF(0.640, 0.330);
         greenPoint = QPointF(0.300, 0.600);
         bluePoint  = QPointF(0.150, 0.060);
@@ -58,6 +59,12 @@ QColorSpacePrimaries::QColorSpacePrimaries(QColorSpace::Primaries primaries)
         greenPoint = QPointF(0.1596, 0.8404);
         bluePoint  = QPointF(0.0366, 0.0001);
         whitePoint = QColorVector::D50Chromaticity();
+        break;
+    case QColorSpace::Primaries::Bt2020:
+        redPoint   = QPointF(0.708 , 0.292);
+        greenPoint = QPointF(0.170, 0.797);
+        bluePoint  = QPointF(0.131, 0.046);
+        whitePoint = QColorVector::D65Chromaticity();
         break;
     default:
         Q_UNREACHABLE();
@@ -159,6 +166,16 @@ QColorSpacePrivate::QColorSpacePrivate(QColorSpace::NamedColorSpace namedColorSp
         primaries = QColorSpace::Primaries::ProPhotoRgb;
         transferFunction = QColorSpace::TransferFunction::ProPhotoRgb;
         description = QStringLiteral("ProPhoto RGB");
+        break;
+    case QColorSpace::scRGBColorSpace:
+        primaries = QColorSpace::Primaries::ScRGB;
+        transferFunction = QColorSpace::TransferFunction::SRgb;
+        description = QStringLiteral("scRGB");
+        break;
+    case QColorSpace::bt2020PQColorSpace:
+        primaries = QColorSpace::Primaries::Bt2020;
+        transferFunction = QColorSpace::TransferFunction::PQ;
+        description = QStringLiteral("BT.2020 PQ");
         break;
     default:
         Q_UNREACHABLE();
@@ -398,6 +415,10 @@ void QColorSpacePrivate::setTransferFunction()
         trc[0].m_fun = QColorTransferFunction::fromProPhotoRgb();
         if (qFuzzyIsNull(gamma))
             gamma = 1.8f;
+        break;
+    case QColorSpace::TransferFunction::PQ:
+        trc[0].m_type = QColorTrc::Type::Function;
+        trc[0].m_fun = QColorTransferFunction::fromPQ();
         break;
     case QColorSpace::TransferFunction::Custom:
         break;
