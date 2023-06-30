@@ -241,9 +241,10 @@ static int writeColorTrc(QDataStream &stream, const QColorTrc &trc)
     }
 
     if (trc.m_type == QColorTrc::Type::Function) {
-        const QColorTransferFunction &fun = trc.m_fun;
+        const QICCColorTransferFunction &fun =
+                *qSharedPointerDynamicCast<QICCColorTransferFunction>(trc.m_fun.m_impl);
         stream << uint(Tag::para) << uint(0);
-        if (fun.isGamma()) {
+        if (trc.m_fun.isGamma()) {
             stream << ushort(0) << ushort(0);
             stream << toFixedS1516(fun.m_g);
             return 12 + 4;
@@ -774,9 +775,11 @@ bool fromIccProfile(const QByteArray &data, QColorSpace *colorSpace)
             colorspaceDPtr->gamma = 1.0f;
         } else if (rCurve.m_fun.isGamma()) {
             qCDebug(lcIcc) << "fromIccProfile: Simple gamma detected";
-            colorspaceDPtr->trc[0] = QColorTransferFunction::fromGamma(rCurve.m_fun.m_g);
+            const QICCColorTransferFunction &fun =
+                    *qSharedPointerDynamicCast<QICCColorTransferFunction>(rCurve.m_fun.m_impl);
+            colorspaceDPtr->trc[0] = QColorTransferFunction::fromGamma(fun.m_g);
             colorspaceDPtr->transferFunction = QColorSpace::TransferFunction::Gamma;
-            colorspaceDPtr->gamma = rCurve.m_fun.m_g;
+            colorspaceDPtr->gamma = fun.m_g;
         } else if (rCurve.m_fun.isSRgb()) {
             qCDebug(lcIcc) << "fromIccProfile: sRGB gamma detected";
             colorspaceDPtr->trc[0] = QColorTransferFunction::fromSRgb();
