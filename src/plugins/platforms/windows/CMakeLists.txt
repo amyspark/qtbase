@@ -104,6 +104,7 @@ qt_internal_extend_target(QWindowsIntegrationPlugin CONDITION QT_FEATURE_angle
     SOURCES
         qwindowseglcontext.cpp qwindowseglcontext.h
         ../angle/qangleeglcontext.cpp ../angle/qangleeglcontext.h
+        ../angle/qangleeglconvenience.cpp
     LIBRARIES
         EGL::EGL
         GLESv2::GLESv2

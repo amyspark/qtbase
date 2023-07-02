@@ -11,6 +11,8 @@ QT_BEGIN_NAMESPACE
 
 struct Q_DECL_HIDDEN QLibEGL
 {
+    static QLibEGL &instance();
+
     bool init();
 
     EGLint(EGLAPIENTRY *eglGetError)(void);
@@ -52,6 +54,8 @@ private:
 
 struct Q_DECL_HIDDEN QLibGLESv2
 {
+    static QLibGLESv2 &instance();
+
     bool init();
 
     void *moduleHandle() const { return m_lib; }

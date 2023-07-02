@@ -122,6 +122,7 @@ qt_internal_extend_target(QWindowsDirect2DIntegrationPlugin CONDITION QT_FEATURE
     SOURCES
         ../windows/qwindowseglcontext.cpp ../windows/qwindowseglcontext.h
         ../angle/qangleeglcontext.cpp ../angle/qangleeglcontext.h
+        ../angle/qangleeglconvenience.cpp
     LIBRARIES
         EGL::EGL
         GLESv2::GLESv2

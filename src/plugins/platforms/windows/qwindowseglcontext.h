@@ -21,7 +21,7 @@ public:
     EGLDisplay display() const { return m_display; }
 
     QWindowsOpenGLContext *createContext(QOpenGLContext *context) override;
-    void *moduleHandle() const override { return libGLESv2.moduleHandle(); }
+    void *moduleHandle() const override { return QLibGLESv2::instance().moduleHandle(); }
     QOpenGLContext::OpenGLModuleType moduleType() const override { return QOpenGLContext::LibGLES; }
 
     void *createWindowSurface(void *nativeWindow, void *nativeConfig, const QColorSpace &colorSpace,
@@ -32,9 +32,6 @@ public:
                                     const QSurfaceFormat &referenceFormat);
 
     bool hasPixelFormatFloatSupport() const { return m_hasPixelFormatFloatSupport; }
-
-    static QLibEGL libEGL;
-    static QLibGLESv2 libGLESv2;
 
 private:
     explicit QWindowsEGLStaticContext(EGLDisplay display);

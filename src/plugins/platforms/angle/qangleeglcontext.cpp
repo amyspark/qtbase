@@ -115,3 +115,15 @@ bool QLibGLESv2::init()
 
     return glBindTexture && glCreateShader && glClearDepthf;
 }
+
+QLibEGL &QLibEGL::instance()
+{
+    static QLibEGL instance;
+    return instance;
+}
+
+QLibGLESv2 &QLibGLESv2::instance()
+{
+    static QLibGLESv2 instance;
+    return instance;
+}
