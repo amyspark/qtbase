@@ -320,6 +320,10 @@ QWindowsOpenGLTester::Renderers QWindowsOpenGLTester::detectSupportedRenderers(c
         qCDebug(lcQpaGl) << "Disabling ANGLE: " << gpu;
         result &= ~QWindowsOpenGLTester::GlesMask;
     } else {
+        if (features.contains(QStringLiteral("disable_opengl"))) { // standard keyword
+            qCDebug(lcQpaGl) << "Disabling OpenGL: " << gpu;
+            result &= ~QWindowsOpenGLTester::AngleRendererOpenGL;
+        }
         if (features.contains(QStringLiteral("disable_d3d11on12"))) { // standard keyword
             qCDebug(lcQpaGl) << "Disabling D3D11 on 12: " << gpu;
             result &= ~QWindowsOpenGLTester::AngleRendererD3d11On12;
