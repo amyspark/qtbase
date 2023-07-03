@@ -15,6 +15,9 @@
 #if QT_CONFIG(vulkan)
 #include "qcocoavulkaninstance.h"
 #endif
+#if QT_CONFIG(angle)
+#include "qcocoaeglcontext.h"
+#endif
 #include "qcocoawindowmanager.h"
 
 #include <QtCore/QScopedPointer>
@@ -62,6 +65,10 @@ public:
 #if QT_CONFIG(vulkan)
     QPlatformVulkanInstance *createPlatformVulkanInstance(QVulkanInstance *instance) const override;
     QCocoaVulkanInstance *getCocoaVulkanInstance() const;
+#endif
+
+#if QT_CONFIG(egl)
+    static QCocoaEGLStaticContext *staticOpenGLContext();
 #endif
 
 #if QT_CONFIG(sessionmanager)
@@ -117,6 +124,10 @@ private:
 
 #if QT_CONFIG(vulkan)
     mutable QCocoaVulkanInstance *mCocoaVulkanInstance = nullptr;
+#endif
+
+#if QT_CONFIG(angle)
+    QScopedPointer<QCocoaEGLStaticContext> mOpenGLContext;
 #endif
 
     QCocoaWindowManager m_windowManager;

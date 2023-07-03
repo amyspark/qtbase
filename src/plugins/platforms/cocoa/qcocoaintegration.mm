@@ -110,6 +110,7 @@ QCocoaIntegration::QCocoaIntegration(const QStringList &paramList)
     , mNativeInterface(new QCocoaNativeInterface)
     , mServices(new QCocoaServices)
     , mKeyboardMapper(new QAppleKeyMapper)
+    , mOpenGLContext(QCocoaStaticOpenGLContext::create())
 {
     logVersionInformation();
 
@@ -279,6 +280,13 @@ QPlatformOffscreenSurface *QCocoaIntegration::createPlatformOffscreenSurface(QOf
 #ifndef QT_NO_OPENGL
 QPlatformOpenGLContext *QCocoaIntegration::createPlatformOpenGLContext(QOpenGLContext *context) const
 {
+#ifdef QT_CONFIG(angle)
+    if (QCocoaOpenGLStaticContext *staticOpenGLContext = QCocoaIntegration::staticOpenGLContext()) {
+        std::unique_ptr<QCocoaEGLContext> result(staticOpenGLContext->createContext(context));
+        if (result->isValid())
+            return result.release();
+    }
+#endif
     return new QCocoaGLContext(context);
 }
 
@@ -294,6 +302,15 @@ QOpenGLContext *QCocoaIntegration::createOpenGLContext(NSOpenGLContext *nativeCo
     return context;
 }
 
+#ifdef QT_CONFIG(angle)
+QCocoaStaticOpenGLContext *QCocoaIntegration::staticOpenGLContext()
+{
+    auto *integration = QCocoaIntegration::instance();
+    if (!integration)
+        return nullptr;
+    return integration->glContext();
+}
+#endif // QT_CONFIG(angle)
 #endif
 
 QPlatformBackingStore *QCocoaIntegration::createPlatformBackingStore(QWindow *window) const

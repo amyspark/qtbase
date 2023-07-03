@@ -91,6 +91,16 @@ qt_internal_extend_target(QCocoaIntegrationPlugin CONDITION QT_FEATURE_vulkan
         qcocoavulkaninstance.h qcocoavulkaninstance.mm
 )
 
+qt_internal_extend_target(QCocoaIntegrationPlugin CONDITION QT_FEATURE_angle
+    SOURCES
+        qcocoaeglcontext.cpp qcocoaeglcontext.h
+        ../angle/qangleeglcontext.cpp ../angle/qangleeglcontext.h
+        ../angle/qangleeglconvenience.cpp
+    LIBRARIES
+        EGL::EGL
+        GLESv2::GLESv2
+)
+
 qt_internal_extend_target(QCocoaIntegrationPlugin CONDITION QT_FEATURE_accessibility
     SOURCES
         qcocoaaccessibility.h qcocoaaccessibility.mm
