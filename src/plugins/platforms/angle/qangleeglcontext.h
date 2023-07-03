@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include <Qt>
+#include <qpa/qplatformopenglcontext.h>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
@@ -66,6 +67,38 @@ struct Q_DECL_HIDDEN QLibGLESv2
 
 private:
     HMODULE m_lib;
+};
+
+class QANGLEContext : public QNativeInterface::QEGLContext
+{
+public:
+    QANGLEContext(EGLDisplay display, const QSurfaceFormat &format, QPlatformOpenGLContext *share);
+
+    ~QANGLEContext() override;
+
+    void doneCurrent();
+    QFunctionPointer getProcAddress(const char *procName);
+
+    QSurfaceFormat format() const { return m_format; }
+    bool isSharing() const { return m_shareContext != EGL_NO_CONTEXT; }
+    bool isValid() const { return m_eglContext != EGL_NO_CONTEXT && !m_markedInvalid; }
+
+    EGLContext nativeContext() const override { return m_eglContext; }
+    EGLDisplay display() const override { return m_eglDisplay; }
+    EGLConfig config() const override { return m_eglConfig; }
+
+    void invalidateContext() override { m_markedInvalid = true; }
+
+protected:
+    EGLContext m_eglContext;
+    EGLContext m_shareContext;
+    EGLDisplay m_eglDisplay;
+    EGLConfig m_eglConfig;
+    QSurfaceFormat m_format;
+    EGLenum m_api = EGL_OPENGL_ES_API;
+    int m_swapInterval = -1;
+
+    bool m_markedInvalid = false;
 };
 
 QT_END_NAMESPACE

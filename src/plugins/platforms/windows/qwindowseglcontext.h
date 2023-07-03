@@ -45,41 +45,29 @@ private:
     bool m_hasPixelFormatFloatSupport;
 };
 
-class QWindowsEGLContext : public QWindowsOpenGLContext, public QNativeInterface::QEGLContext
+class QWindowsEGLContext : public QANGLEContext, public QWindowsOpenGLContext
 {
 public:
     explicit QWindowsEGLContext(QWindowsEGLStaticContext *staticContext,
                                 const QSurfaceFormat &format, QPlatformOpenGLContext *share);
-    explicit QWindowsEGLContext(QWindowsEGLStaticContext *staticContext, HGLRC context,
-                                HWND window);
     ~QWindowsEGLContext() override;
 
+
+
     bool makeCurrent(QPlatformSurface *surface) override;
-    void doneCurrent() override;
+    void doneCurrent() override { return QANGLEContext::doneCurrent(); }
     void swapBuffers(QPlatformSurface *surface) override;
-    QFunctionPointer getProcAddress(const char *procName) override;
+    QFunctionPointer getProcAddress(const char *procName) override { return QANGLEContext::getProcAddress(procName); }
 
-    QSurfaceFormat format() const override { return m_format; }
-    bool isSharing() const override { return m_shareContext != EGL_NO_CONTEXT; }
-    bool isValid() const override { return m_eglContext != EGL_NO_CONTEXT && !m_markedInvalid; }
+    QSurfaceFormat format() const override { return QANGLEContext::format(); }
+    bool isSharing() const override { return QANGLEContext::isSharing(); }
+    bool isValid() const override { return QANGLEContext::isValid(); }
 
-    EGLContext nativeContext() const override { return m_eglContext; }
-    EGLDisplay display() const override { return m_eglDisplay; }
-    EGLConfig config() const override { return m_eglConfig; }
-
-    virtual void invalidateContext() override { m_markedInvalid = true; }
+    void *nativeDisplay() const override { return display(); }
+    void *nativeConfig() const override { return config(); }
 
 private:
     QWindowsEGLStaticContext *m_staticContext;
-    EGLContext m_eglContext;
-    EGLContext m_shareContext;
-    EGLDisplay m_eglDisplay;
-    EGLConfig m_eglConfig;
-    QSurfaceFormat m_format;
-    EGLenum m_api = EGL_OPENGL_ES_API;
-    int m_swapInterval = -1;
-
-    bool m_markedInvalid = false;
 };
 
 QT_END_NAMESPACE
