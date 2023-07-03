@@ -4,11 +4,29 @@
 
 #include <Qt>
 #include <qpa/qplatformopenglcontext.h>
+#include <QtCore/qloggingcategory.h>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 
 QT_BEGIN_NAMESPACE
+
+namespace
+{
+#ifdef Q_OS_WIN
+    using AngleHandle = HMODULE;
+#else
+    using AngleHandle = Qt::HANDLE;
+#endif
+}
+
+#if defined(Q_OS_MACOS)
+Q_DECLARE_LOGGING_CATEGORY(lcQpaOpenGLContext);
+#define logQpaGL lcQpaOpenGLContext
+#else
+Q_DECLARE_LOGGING_CATEGORY(lcQpaGl);
+#define logQpaGL lcQpaGl
+#endif
 
 struct Q_DECL_HIDDEN QLibEGL
 {
@@ -50,7 +68,7 @@ struct Q_DECL_HIDDEN QLibEGL
 
 private:
     void *resolve(const char *name);
-    HMODULE m_lib;
+    AngleHandle m_lib;
 };
 
 struct Q_DECL_HIDDEN QLibGLESv2
@@ -66,7 +84,7 @@ struct Q_DECL_HIDDEN QLibGLESv2
     void *resolve(const char *name);
 
 private:
-    HMODULE m_lib;
+    AngleHandle m_lib;
 };
 
 class QANGLEContext : public QNativeInterface::QEGLContext

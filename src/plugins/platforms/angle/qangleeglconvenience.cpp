@@ -24,8 +24,6 @@ using namespace std::string_view_literals;
 
 QT_BEGIN_NAMESPACE
 
-Q_DECLARE_LOGGING_CATEGORY(lcQpaGl); // in qwindowscontext.cpp -- todo: add equivalent for macOS
-
 std::vector<EGLint> q_createConfigAttributesFromFormat(const QSurfaceFormat &format) noexcept
 {
     // clang-format off
@@ -462,7 +460,7 @@ void q_printEglConfig(EGLDisplay display, EGLConfig config) noexcept
         EGLint value;
         if (QLibEGL::instance().eglGetConfigAttrib(display, config, attr.attr,
                                                                 &value)) {
-            qDebug(lcQpaGl, "\t%s: %d", attr.name, (int)value);
+            qDebug(logQpaGL, "\t%s: %d", attr.name, (int)value);
         }
     }
 }

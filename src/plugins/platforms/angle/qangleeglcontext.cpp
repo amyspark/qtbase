@@ -4,18 +4,25 @@
 
 #include "qangleeglcontext.h"
 #include "qangleeglconvenience_p.h"
-#include "../windows/qwindowscontext.h"
 
 #include <string_view>
+
+#ifndef Q_OS_WIN
+#include <dlfcn.h>
+#endif
+
+#if !defined(Q_OS_WIN) && !defined(Q_OS_MACOS)
+Q_LOGGING_CATEGORY(logQpaGL, "qt.qpa.openglcontext", QtWarningMsg);
+#endif
 
 using namespace std::string_view_literals;
 
 QT_BEGIN_NAMESPACE
 
-#ifdef Q_CC_MINGW
-static inline void *resolveFunc(HMODULE lib, const char *name)
+static inline void *resolveFunc(AngleHandle lib, const char *name)
 {
-    const auto baseNameStr{ QString::fromLatin1(name) };
+#ifdef Q_CC_MINGW
+    const QLatin1StringView baseNameStr{ name };
     QString nameStr;
     void *proc = nullptr;
 
@@ -34,13 +41,12 @@ static inline void *resolveFunc(HMODULE lib, const char *name)
         proc = reinterpret_cast<void *>(::GetProcAddress(lib, nameStr.toLatin1().constData()));
     }
     return proc;
-}
+#elif defined(Q_OS_WIN)
+    return reinterpret_cast<void *>(::GetProcAddress(lib, name));
 #else
-static inline void *resolveFunc(HMODULE lib, const char *name)
-{
-return reinterpret_cast<void *>(::GetProcAddress(lib, name));
+    return dlsym(lib, name);
+#endif
 }
-#endif // Q_CC_MINGW
 
 void *QLibEGL::resolve(const char *name)
 {
@@ -53,15 +59,27 @@ void *QLibEGL::resolve(const char *name)
 
 bool QLibEGL::init()
 {
+#ifdef Q_OS_WIN
     static constexpr LPCWSTR dllName{ L"libEGL" };
 
-    qCDebug(lcQpaGl) << "Qt: Using EGL from" << dllName;
+    qCDebug(logQpaGL, "Qt: Using EGL from %s", dllName);
 
     m_lib = ::LoadLibraryW(dllName);
     if (!m_lib) {
-        qErrnoWarning(::GetLastError(), "Failed to load %s", dllName);
+        qErrnoWarning(::GetLastError(), "%s: Failed to load %s", __FUNCTION__, dllName);
         return false;
     }
+#else
+    static constexpr auto dllName{ "libEGL"sv };
+
+    qCDebug(logQpaGL, "Qt: Using EGL from %s", dllName.data());
+
+    m_lib = dlopen(dllName, RTLD_NOW);
+    if (!m_lib) {
+        qWarning("%s: Failed to load %s (%s)", __FUNCTION__, dllName, dlerror());
+        return false;
+    }
+#endif
 
     RESOLVE(eglGetError);
     RESOLVE(eglGetDisplay);
@@ -102,15 +120,27 @@ void *QLibGLESv2::resolve(const char *name)
 
 bool QLibGLESv2::init()
 {
-    static constexpr LPCWSTR dllName{ L"libGLESv2" };
+#ifdef Q_OS_WIN
+    static constexpr auto dllName{ L"libGLESv2"sv };
 
-    qCDebug(lcQpaGl) << "Qt: Using OpenGL ES 2.0 from" << dllName;
+    qCDebug(logQpaGL, "%s: Qt: Using OpenGL ES 2.0 from %s", __FUNCTION__, dllName);
 
-    m_lib = ::LoadLibraryW(dllName);
+    m_lib = ::LoadLibraryW(dllName.data());
     if (!m_lib) {
-        qErrnoWarning(int(GetLastError()), "Failed to load %s", dllName);
+        qErrnoWarning(int(GetLastError()), "%s: Failed to load %s", __FUNCTION__, dllName.data());
         return false;
     }
+#else
+    static constexpr auto dllName{ "libGLESv2"sv };
+
+    qCDebug(logQpaGL, "%s: Qt: Using OpenGL ES 2.0 from %s", __FUNCTION__, dllName.data());
+
+    m_lib = dlopen(dllName.data(), RTLD_NOW);
+    if (!m_lib) {
+        qWarning("%s: Failed to load %s (%s)", __FUNCTION__, dllName.data(), dlerror());
+        return false;
+    }
+#endif
 
     void(APIENTRY * glBindTexture)(GLenum target, GLuint texture){ nullptr };
     GLuint(APIENTRY * glCreateShader)(GLenum type){ nullptr };
@@ -152,7 +182,7 @@ QANGLEContext::QANGLEContext(EGLDisplay display,
     const EGLint major{ m_format.majorVersion() };
     const EGLint minor{ m_format.minorVersion() };
     if (major > 3 || (major == 3 && minor > 0))
-        qWarning("QANGLEContext: ANGLE only partially supports OpenGL ES > 3.0");
+        qWarning(logQpaGL, "%s: ANGLE only partially supports OpenGL ES > 3.0", __FUNCTION__);
     const std::array<EGLint, 5> contextAttrs{
         EGL_CONTEXT_MAJOR_VERSION, major, EGL_CONTEXT_MINOR_VERSION, minor, EGL_NONE,
     };
@@ -168,11 +198,11 @@ QANGLEContext::QANGLEContext(EGLDisplay display,
 
     if (m_eglContext == EGL_NO_CONTEXT) {
         const auto err{ QLibEGL::instance().eglGetError() };
-        qWarning("QANGLEContext: Failed to create context, eglError: %x, this: %p", err, this);
+        qWarning(logQpaGL, "%s: Failed to create context, eglError: %x, this: %p", __FUNCTION__, err, this);
         // ANGLE gives bad alloc when it fails to reset a previously lost D3D device.
         // A common cause for this is disabling the graphics adapter used by the app.
         if (err == EGL_BAD_ALLOC)
-            qWarning("QANGLEContext: Graphics device lost. (Did the adapter get disabled?)");
+            qWarning(logQpaGL, "%s: Graphics device lost. (Did the adapter get disabled?)", __FUNCTION__);
         return;
     }
 
@@ -226,7 +256,7 @@ void QANGLEContext::doneCurrent()
     const auto ok{ QLibEGL::instance().eglMakeCurrent(
             m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) };
     if (!ok)
-        qWarning("%s: Failed to make no context/surface current. eglError: %d, this: %p",
+        qWarning(logQpaGL, "%s: Failed to make no context/surface current. eglError: %d, this: %p",
                  __FUNCTION__, QLibEGL::instance().eglGetError(), this);
 }
 
@@ -261,10 +291,7 @@ QFunctionPointer QANGLEContext::getProcAddress(const char *procName)
         procAddress = reinterpret_cast<QFunctionPointer>(
                 QLibGLESv2::instance().resolve(procName));
 
-    if (QWindowsContext::verbose > 1)
-        qCDebug(lcQpaGl) << __FUNCTION__ << procName
-                         << QLibEGL::instance().eglGetCurrentContext() << "returns"
-                         << reinterpret_cast<void *>(procAddress);
+    qCDebug(logQpaGL, "%s: %s %p returns %p", __FUNCTION__, procName, QLibEGL::instance().eglGetCurrentContext(), reinterpret_cast<void *>(procAddress));
 
     return procAddress;
 }
